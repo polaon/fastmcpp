@@ -398,6 +398,10 @@ if(FASTMCPP_BUILD_TESTS)
   target_link_libraries(fastmcpp_server_streamable_http_integration PRIVATE fastmcpp_core)
   add_test(NAME fastmcpp_server_streamable_http_integration COMMAND fastmcpp_server_streamable_http_integration)
 
+  add_executable(fastmcpp_server_port_zero tests/server/port_zero.cpp)
+  target_link_libraries(fastmcpp_server_port_zero PRIVATE fastmcpp_core)
+  add_test(NAME fastmcpp_server_port_zero COMMAND fastmcpp_server_port_zero)
+
   add_executable(fastmcpp_server_auth_cors_security tests/server/auth_cors_security.cpp)
   target_link_libraries(fastmcpp_server_auth_cors_security PRIVATE fastmcpp_core)
   add_test(NAME fastmcpp_server_auth_cors_security COMMAND fastmcpp_server_auth_cors_security)
