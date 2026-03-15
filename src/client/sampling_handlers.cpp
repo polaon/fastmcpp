@@ -521,7 +521,7 @@ create_openai_compatible_sampling_callback(OpenAICompatibleOptions options)
         if (params.contains("temperature") && params["temperature"].is_number())
             request["temperature"] = params["temperature"];
         if (params.contains("maxTokens") && params["maxTokens"].is_number_integer())
-            request["max_tokens"] = params["maxTokens"];
+            request["max_completion_tokens"] = params["maxTokens"];
         if (params.contains("stopSequences") && params["stopSequences"].is_array())
             request["stop"] = params["stopSequences"];
 

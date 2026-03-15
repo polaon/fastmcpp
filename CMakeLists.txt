@@ -520,6 +520,10 @@ if(FASTMCPP_BUILD_TESTS)
   target_link_libraries(fastmcpp_provider_version_filter PRIVATE fastmcpp_core)
   add_test(NAME fastmcpp_provider_version_filter COMMAND fastmcpp_provider_version_filter)
 
+  add_executable(fastmcpp_provider_catalog_search tests/providers/test_catalog_search_transforms.cpp)
+  target_link_libraries(fastmcpp_provider_catalog_search PRIVATE fastmcpp_core)
+  add_test(NAME fastmcpp_provider_catalog_search COMMAND fastmcpp_provider_catalog_search)
+
   add_executable(fastmcpp_provider_skills tests/providers/skills_provider.cpp)
   target_link_libraries(fastmcpp_provider_skills PRIVATE fastmcpp_core)
   add_test(NAME fastmcpp_provider_skills COMMAND fastmcpp_provider_skills)

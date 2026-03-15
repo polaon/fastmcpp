@@ -80,20 +80,25 @@ int compare_versions(const std::string& a, const std::string& b)
 } // namespace
 
 VersionFilter::VersionFilter(std::optional<std::string> version_gte,
-                             std::optional<std::string> version_lt)
-    : version_gte_(std::move(version_gte)), version_lt_(std::move(version_lt))
+                             std::optional<std::string> version_lt, bool include_unversioned)
+    : version_gte_(std::move(version_gte)), version_lt_(std::move(version_lt)),
+      include_unversioned_(include_unversioned)
 {
     if (!version_gte_ && !version_lt_)
         throw ValidationError("At least one of version_gte/version_lt must be set");
 }
 
-VersionFilter::VersionFilter(std::string version_gte) : version_gte_(std::move(version_gte)) {}
+VersionFilter::VersionFilter(std::string version_gte)
+    : version_gte_(std::move(version_gte)), include_unversioned_(true)
+{
+}
 
 bool VersionFilter::matches(const std::optional<std::string>& version) const
 {
-    // Python fastmcp intentionally lets unversioned components pass any range filter.
+    // Python fastmcp lets unversioned components pass range filters by default.
+    // When include_unversioned is false, unversioned components are excluded.
     if (!version)
-        return true;
+        return include_unversioned_;
     if (version_gte_ && compare_versions(*version, *version_gte_) < 0)
         return false;
     if (version_lt_ && compare_versions(*version, *version_lt_) >= 0)

@@ -26,8 +26,10 @@ class HttpTransport : public ITransport
   public:
     explicit HttpTransport(std::string base_url,
                            std::chrono::seconds timeout = std::chrono::seconds(300),
-                           std::unordered_map<std::string, std::string> headers = {})
-        : base_url_(std::move(base_url)), timeout_(timeout), headers_(std::move(headers))
+                           std::unordered_map<std::string, std::string> headers = {},
+                           bool verify_ssl = true)
+        : base_url_(std::move(base_url)), timeout_(timeout), headers_(std::move(headers)),
+          verify_ssl_(verify_ssl)
     {
     }
     fastmcpp::Json request(const std::string& route, const fastmcpp::Json& payload);
@@ -48,6 +50,7 @@ class HttpTransport : public ITransport
     std::string base_url_;
     std::chrono::seconds timeout_;
     std::unordered_map<std::string, std::string> headers_;
+    bool verify_ssl_{true};
 };
 
 // Launches an MCP stdio server as a subprocess and performs JSON-RPC requests
@@ -121,7 +124,8 @@ class SseClientTransport : public ITransport,
     /// @param sse_path Path for SSE endpoint (default: "/sse")
     /// @param messages_path Path for message endpoint (default: "/messages")
     explicit SseClientTransport(std::string base_url, std::string sse_path = "/sse",
-                                std::string messages_path = "/messages");
+                                std::string messages_path = "/messages",
+                                bool verify_ssl = true);
 
     ~SseClientTransport();
 
@@ -149,6 +153,7 @@ class SseClientTransport : public ITransport,
     std::string base_url_;
     std::string sse_path_;
     std::string messages_path_;
+    bool verify_ssl_{true};
     mutable std::mutex endpoint_mutex_;
     std::string endpoint_path_; // Endpoint path from SSE with session_id
     std::string session_id_;
@@ -187,7 +192,8 @@ class StreamableHttpTransport : public ITransport,
     /// @param mcp_path Path for the MCP endpoint (default: "/mcp")
     /// @param headers Additional headers to include in requests
     explicit StreamableHttpTransport(std::string base_url, std::string mcp_path = "/mcp",
-                                     std::unordered_map<std::string, std::string> headers = {});
+                                     std::unordered_map<std::string, std::string> headers = {},
+                                     bool verify_ssl = true);
 
     ~StreamableHttpTransport();
 
@@ -219,6 +225,7 @@ class StreamableHttpTransport : public ITransport,
     std::string base_url_;
     std::string mcp_path_;
     std::unordered_map<std::string, std::string> headers_;
+    bool verify_ssl_{true};
 
     // Session management
     mutable std::mutex session_mutex_;

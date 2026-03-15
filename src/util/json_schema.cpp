@@ -80,6 +80,41 @@ static bool contains_ref_impl(const Json& schema)
     return false;
 }
 
+/// Strip non-local $ref values (security: prevents SSRF/LFI when proxying schemas).
+/// Local refs (starting with #) are kept intact.
+static Json strip_remote_refs(const Json& obj)
+{
+    if (obj.is_object())
+    {
+        auto ref_it = obj.find("$ref");
+        if (ref_it != obj.end() && ref_it->is_string())
+        {
+            const auto& ref = ref_it->get_ref<const std::string&>();
+            if (!ref.empty() && ref[0] != '#')
+            {
+                // Drop the remote $ref key; keep all other keys
+                Json result = Json::object();
+                for (const auto& [key, value] : obj.items())
+                    if (key != "$ref")
+                        result[key] = strip_remote_refs(value);
+                return result;
+            }
+        }
+        Json result = Json::object();
+        for (const auto& [key, value] : obj.items())
+            result[key] = strip_remote_refs(value);
+        return result;
+    }
+    if (obj.is_array())
+    {
+        Json result = Json::array();
+        for (const auto& item : obj)
+            result.push_back(strip_remote_refs(item));
+        return result;
+    }
+    return obj;
+}
+
 static std::optional<Json> resolve_local_ref(const Json& root, const std::string& ref)
 {
     if (ref.empty() || ref[0] != '#')
@@ -174,8 +209,11 @@ Json dereference_refs(const Json& schema)
     if (!schema.is_object() && !schema.is_array())
         return schema;
 
+    // Strip remote $ref values before processing to prevent SSRF/LFI.
+    Json sanitized = strip_remote_refs(schema);
+
     std::vector<std::string> stack;
-    Json dereferenced = dereference_node(schema, schema, stack);
+    Json dereferenced = dereference_node(sanitized, sanitized, stack);
 
     if (dereferenced.is_object() && dereferenced.contains("$defs") &&
         !contains_ref_impl(dereferenced))

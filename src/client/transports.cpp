@@ -162,6 +162,9 @@ fastmcpp::Json HttpTransport::request(const std::string& route, const fastmcpp::
     // Security: Create client with full scheme://host:port URL for proper TLS handling
     std::string full_url = url.scheme + "://" + url.host + ":" + std::to_string(url.port);
     httplib::Client cli(full_url.c_str());
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+    cli.enable_server_certificate_verification(verify_ssl_);
+#endif
 
     cli.set_connection_timeout(5, 0);
     cli.set_keep_alive(true);
@@ -190,6 +193,9 @@ void HttpTransport::request_stream(const std::string& route, const fastmcpp::Jso
     // Security: Create client with full scheme://host:port URL for proper TLS handling
     std::string full_url = url.scheme + "://" + url.host + ":" + std::to_string(url.port);
     httplib::Client cli(full_url.c_str());
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+    cli.enable_server_certificate_verification(verify_ssl_);
+#endif
 
     cli.set_connection_timeout(5, 0);
     cli.set_keep_alive(true);
@@ -769,9 +775,9 @@ StdioTransport::~StdioTransport()
 // =============================================================================
 
 SseClientTransport::SseClientTransport(std::string base_url, std::string sse_path,
-                                       std::string messages_path)
+                                       std::string messages_path, bool verify_ssl)
     : base_url_(std::move(base_url)), sse_path_(std::move(sse_path)),
-      messages_path_(std::move(messages_path))
+      messages_path_(std::move(messages_path)), verify_ssl_(verify_ssl)
 {
     start_sse_listener();
 }
@@ -826,6 +832,9 @@ void SseClientTransport::start_sse_listener()
 
             // Use two-argument constructor for better Windows compatibility
             httplib::Client cli(url.host.c_str(), url.port);
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+            cli.enable_server_certificate_verification(verify_ssl_);
+#endif
             cli.set_connection_timeout(10, 0);
             cli.set_read_timeout(300, 0); // Long timeout for SSE stream (5 minutes)
             cli.set_keep_alive(true);
@@ -1058,6 +1067,9 @@ void SseClientTransport::process_sse_event(const fastmcpp::Json& event)
     {
         auto url = parse_url(base_url_);
         httplib::Client cli(url.host.c_str(), url.port);
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        cli.enable_server_certificate_verification(verify_ssl_);
+#endif
         cli.set_connection_timeout(5, 0);
         cli.set_read_timeout(30, 0);
 
@@ -1098,6 +1110,9 @@ fastmcpp::Json SseClientTransport::request(const std::string& route, const fastm
     // Send request via POST to /messages with session_id
     auto url = parse_url(base_url_);
     httplib::Client cli(url.host.c_str(), url.port);
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+    cli.enable_server_certificate_verification(verify_ssl_);
+#endif
     cli.set_connection_timeout(5, 0);
     cli.set_read_timeout(30, 0);
 
@@ -1155,8 +1170,9 @@ fastmcpp::Json SseClientTransport::request(const std::string& route, const fastm
 
 StreamableHttpTransport::StreamableHttpTransport(
     std::string base_url, std::string mcp_path,
-    std::unordered_map<std::string, std::string> headers)
-    : base_url_(std::move(base_url)), mcp_path_(std::move(mcp_path)), headers_(std::move(headers))
+    std::unordered_map<std::string, std::string> headers, bool verify_ssl)
+    : base_url_(std::move(base_url)), mcp_path_(std::move(mcp_path)), headers_(std::move(headers)),
+      verify_ssl_(verify_ssl)
 {
 }
 
@@ -1306,6 +1322,9 @@ fastmcpp::Json StreamableHttpTransport::request(const std::string& route,
     for (int redirects = 0; redirects <= 5; ++redirects)
     {
         httplib::Client cli(full_url.c_str());
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        cli.enable_server_certificate_verification(verify_ssl_);
+#endif
         cli.set_connection_timeout(30, 0);
         cli.set_read_timeout(300, 0); // Align with MCP HTTP defaults (30s connect, 5min read)
         cli.set_keep_alive(true);

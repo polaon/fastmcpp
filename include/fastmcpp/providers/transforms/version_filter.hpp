@@ -12,7 +12,8 @@ namespace fastmcpp::providers::transforms
 class VersionFilter : public Transform
 {
   public:
-    VersionFilter(std::optional<std::string> version_gte, std::optional<std::string> version_lt);
+    VersionFilter(std::optional<std::string> version_gte, std::optional<std::string> version_lt,
+                  bool include_unversioned = true);
     explicit VersionFilter(std::string version_gte);
 
     std::vector<tools::Tool> list_tools(const ListToolsNext& call_next) const override;
@@ -39,6 +40,7 @@ class VersionFilter : public Transform
 
     std::optional<std::string> version_gte_;
     std::optional<std::string> version_lt_;
+    bool include_unversioned_;
 };
 
 } // namespace fastmcpp::providers::transforms
