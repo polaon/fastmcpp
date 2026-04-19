@@ -2,15 +2,22 @@
 #include "fastmcpp/server/server.hpp"
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 namespace httplib
 {
 class Server;
 class Response;
+} // namespace httplib
+
+namespace fastmcpp
+{
+struct CustomRoute;
 }
 
 namespace fastmcpp::server
@@ -31,10 +38,15 @@ class HttpServerWrapper
      * @param response_headers Additional HTTP headers added to responses
      */
     HttpServerWrapper(std::shared_ptr<Server> core, std::string host = "127.0.0.1",
-                      int port = 18080, std::string auth_token = "",
-                      std::string cors_origin = "",
+                      int port = 18080, std::string auth_token = "", std::string cors_origin = "",
                       std::unordered_map<std::string, std::string> response_headers = {});
     ~HttpServerWrapper();
+
+    /// Register a custom HTTP route (e.g. `/health`) handled before the
+    /// catch-all JSON-RPC POST. Must be called before start(); routes
+    /// registered after start() take effect on the next start() call. Parity
+    /// hook for Python `FastMCP.custom_route()` aggregation (commit 68e76fea).
+    void set_custom_routes(std::vector<fastmcpp::CustomRoute> routes);
 
     bool start();
     void stop();
@@ -69,6 +81,7 @@ class HttpServerWrapper
     std::atomic<int> bound_port_ = 0;
     std::string auth_token_; // Optional Bearer token for authentication
     std::unordered_map<std::string, std::string> response_headers_;
+    std::vector<fastmcpp::CustomRoute> custom_routes_;
     std::unique_ptr<httplib::Server> svr_;
     std::thread thread_;
     std::atomic<bool> running_{false};

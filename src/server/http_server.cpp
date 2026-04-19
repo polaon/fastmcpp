@@ -1,12 +1,28 @@
 #include "fastmcpp/server/http_server.hpp"
 
+#include "fastmcpp/app.hpp"
 #include "fastmcpp/exceptions.hpp"
+#include "fastmcpp/util/http_methods.hpp"
 #include "fastmcpp/util/json.hpp"
 
 #include <httplib.h>
 
 namespace fastmcpp::server
 {
+
+void HttpServerWrapper::set_custom_routes(std::vector<fastmcpp::CustomRoute> routes)
+{
+    for (auto& route : routes)
+    {
+        route.method = fastmcpp::util::http::normalize_custom_route_method(std::move(route.method));
+        if (route.path.empty() || route.path.front() != '/')
+            throw ValidationError("CustomRoute.path must start with '/' (got '" + route.path +
+                                  "')");
+        if (!route.handler)
+            throw ValidationError("CustomRoute.handler is required");
+    }
+    custom_routes_ = std::move(routes);
+}
 
 HttpServerWrapper::HttpServerWrapper(std::shared_ptr<Server> core, std::string host, int port,
                                      std::string auth_token, std::string cors_origin,
@@ -62,28 +78,86 @@ bool HttpServerWrapper::start()
     svr_->Options(R"(/(.*))",
                   [this](const httplib::Request&, httplib::Response& res)
                   {
-                      res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+                      res.set_header("Access-Control-Allow-Methods",
+                                     "GET, POST, PUT, DELETE, PATCH, OPTIONS");
                       res.set_header("Access-Control-Allow-Headers",
                                      "Content-Type, Authorization, Mcp-Session-Id");
                       apply_additional_response_headers(res);
                       res.status = 204;
                   });
 
+    auto authorize_or_401 = [this](const httplib::Request& req, httplib::Response& res) -> bool
+    {
+        if (auth_token_.empty())
+            return true;
+
+        auto auth_it = req.headers.find("Authorization");
+        if (auth_it != req.headers.end() && check_auth(auth_it->second))
+            return true;
+
+        apply_additional_response_headers(res);
+        res.status = 401;
+        res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+        return false;
+    };
+
+    // Register user-supplied custom routes BEFORE the catch-all so they
+    // shadow JSON-RPC dispatch on those paths. Parity with Python fastmcp
+    // `custom_route()` aggregation (commit 68e76fea forwards routes from
+    // mounted children, see FastMCP::all_custom_routes()).
+    for (const auto& route : custom_routes_)
+    {
+        if (!route.handler)
+            continue;
+        auto handler =
+            [this, route, authorize_or_401](const httplib::Request& req, httplib::Response& res)
+        {
+            if (!authorize_or_401(req, res))
+                return;
+
+            apply_additional_response_headers(res);
+            fastmcpp::CustomRouteRequest cr;
+            cr.method = req.method;
+            cr.path = req.path;
+            cr.body = req.body;
+            cr.target = req.target;
+            cr.query_params = req.params;
+            for (const auto& [k, v] : req.headers)
+                cr.headers[k] = v;
+            try
+            {
+                auto out = route.handler(cr);
+                res.status = out.status;
+                for (const auto& [k, v] : out.headers)
+                    res.set_header(k, v);
+                res.set_content(out.body, out.content_type);
+            }
+            catch (const std::exception& e)
+            {
+                res.status = 500;
+                res.set_content(std::string("{\"error\":\"") + e.what() + "\"}",
+                                "application/json");
+            }
+        };
+
+        if (route.method == "GET")
+            svr_->Get(route.path, handler);
+        else if (route.method == "POST")
+            svr_->Post(route.path, handler);
+        else if (route.method == "PUT")
+            svr_->Put(route.path, handler);
+        else if (route.method == "DELETE")
+            svr_->Delete(route.path, handler);
+        else if (route.method == "PATCH")
+            svr_->Patch(route.path, handler);
+    }
+
     // Generic POST: /<route>
     svr_->Post(R"(/(.*))",
-               [this](const httplib::Request& req, httplib::Response& res)
+               [this, authorize_or_401](const httplib::Request& req, httplib::Response& res)
                {
-                   // Security: Check authentication if configured
-                   if (!auth_token_.empty())
-                   {
-                       auto auth_it = req.headers.find("Authorization");
-                       if (auth_it == req.headers.end() || !check_auth(auth_it->second))
-                       {
-                           res.status = 401;
-                           res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-                           return;
-                       }
-                   }
+                   if (!authorize_or_401(req, res))
+                       return;
 
                    apply_additional_response_headers(res);
 
