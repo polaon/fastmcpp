@@ -117,8 +117,7 @@ bool StreamableHttpServerWrapper::start()
     svr_->Options(mcp_path_,
                   [this](const httplib::Request&, httplib::Response& res)
                   {
-                      res.set_header("Access-Control-Allow-Methods",
-                                     "GET, POST, DELETE, OPTIONS");
+                      res.set_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
                       res.set_header("Access-Control-Allow-Headers",
                                      "Content-Type, Authorization, Mcp-Session-Id");
                       apply_additional_response_headers(res);
