@@ -135,6 +135,12 @@ bool StreamableHttpServerWrapper::start()
             // propagated to the catch handlers below.
             apply_additional_response_headers(res);
 
+            // Expose response headers that cross-origin JS clients legitimately need to
+            // read. Without this, browsers hide Mcp-Session-Id from response.headers.get()
+            // even though it is sent on the wire, because browsers only expose a small
+            // whitelist of "safe" response headers by default.
+            res.set_header("Access-Control-Expose-Headers", "Mcp-Session-Id");
+
             try
             {
                 // Security: Check authentication if configured
