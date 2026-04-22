@@ -357,7 +357,7 @@ bool StreamableHttpServerWrapper::start()
 
                   fastmcpp::Json error_response = {
                       {"error", "Method Not Allowed"},
-                      {"message", "The MCP endpoint only supports POST and DELETE requests."}};
+                      {"message", "The MCP endpoint only supports POST, DELETE, and OPTIONS requests."}};
 
                   res.set_content(error_response.dump(), "application/json");
               });
