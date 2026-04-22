@@ -343,24 +343,25 @@ bool StreamableHttpServerWrapper::start()
         });
 
     // Handle GET request to return 405 Method Not Allowed
-    svr_->Get(mcp_path_,
-              [this](const httplib::Request&, httplib::Response& res)
-              {
-                  // CORS / additional headers must be applied on every response, including
-                  // this 405. Without this, browsers reject the response with a misleading
-                  // "No 'Access-Control-Allow-Origin' header is present" error.
-                  apply_additional_response_headers(res);
+    svr_->Get(
+        mcp_path_,
+        [this](const httplib::Request&, httplib::Response& res)
+        {
+            // CORS / additional headers must be applied on every response, including
+            // this 405. Without this, browsers reject the response with a misleading
+            // "No 'Access-Control-Allow-Origin' header is present" error.
+            apply_additional_response_headers(res);
 
-                  res.status = 405;
-                  res.set_header("Allow", "POST, DELETE, OPTIONS");
-                  res.set_header("Content-Type", "application/json");
+            res.status = 405;
+            res.set_header("Allow", "POST, DELETE, OPTIONS");
+            res.set_header("Content-Type", "application/json");
 
-                  fastmcpp::Json error_response = {
-                      {"error", "Method Not Allowed"},
-                      {"message", "The MCP endpoint only supports POST, DELETE, and OPTIONS requests."}};
+            fastmcpp::Json error_response = {
+                {"error", "Method Not Allowed"},
+                {"message", "The MCP endpoint only supports POST, DELETE, and OPTIONS requests."}};
 
-                  res.set_content(error_response.dump(), "application/json");
-              });
+            res.set_content(error_response.dump(), "application/json");
+        });
 
     // Handle DELETE request for session termination (MCP Streamable HTTP spec).
     // Without this handler, httplib would fall back to its default 404 response,
