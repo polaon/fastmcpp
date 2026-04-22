@@ -8,7 +8,6 @@
 #include <chrono>
 #include <httplib.h>
 #include <iomanip>
-#include <iostream>
 #include <random>
 #include <sstream>
 
@@ -353,12 +352,12 @@ bool StreamableHttpServerWrapper::start()
                   apply_additional_response_headers(res);
 
                   res.status = 405;
-                  res.set_header("Allow", "POST");
+                  res.set_header("Allow", "POST, DELETE, OPTIONS");
                   res.set_header("Content-Type", "application/json");
 
                   fastmcpp::Json error_response = {
                       {"error", "Method Not Allowed"},
-                      {"message", "The MCP endpoint only supports POST requests."}};
+                      {"message", "The MCP endpoint only supports POST and DELETE requests."}};
 
                   res.set_content(error_response.dump(), "application/json");
               });
@@ -372,16 +371,32 @@ bool StreamableHttpServerWrapper::start()
                  {
                      apply_additional_response_headers(res);
 
-                     // If an Mcp-Session-Id header is provided, terminate that session.
                      auto session_it = req.headers.find("Mcp-Session-Id");
-                     if (session_it != req.headers.end())
+                     if (session_it == req.headers.end() || session_it->second.empty())
                      {
-                         const std::string& session_id = session_it->second;
-                         std::lock_guard<std::mutex> lock(sessions_mutex_);
-                         sessions_.erase(session_id);
+                         res.status = 400;
+                         res.set_content("{\"error\":\"Mcp-Session-Id header required\"}",
+                                         "application/json");
+                         return;
                      }
 
-                     res.status = 204; // No Content
+                     const std::string& session_id = session_it->second;
+                     bool did_remove = false;
+                     {
+                         std::lock_guard<std::mutex> lock(sessions_mutex_);
+                         did_remove = sessions_.erase(session_id) > 0;
+                     }
+
+                     if (did_remove)
+                     {
+                         res.status = 204; // No Content
+                     }
+                     else
+                     {
+                         res.status = 404;
+                         res.set_content("{\"error\":\"Invalid or expired session\"}",
+                                         "application/json");
+                     }
                  });
 
     running_ = true;
